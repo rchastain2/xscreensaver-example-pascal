@@ -3,7 +3,7 @@ PC := fpc
 PFLAGS := -Mobjfpc -Sh
 PFLAGS += -ghl
 
-PROGRAM := ball
+PROGRAM := demo
 
 default: $(PROGRAM)
 
