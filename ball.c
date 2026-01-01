@@ -116,13 +116,12 @@ int main(int argc, char *argv[])
   XGetWindowAttributes(dpy, root, &wa);
   Pixmap map = XCreatePixmap(dpy, root, wa.width, wa.height, wa.depth);
   GC gc = XCreateGC(dpy, root, 0, NULL);
-
-  cairo_surface_t *sf = cairo_xlib_surface_create(dpy, map, DefaultVisual(dpy, DefaultScreen(dpy)), wa.width, wa.height);
-  cairo_t *cr = cairo_create(sf);
-  
-  Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+  Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False); /* Xlib defines the type Bool and the Boolean values True and False. */
   XSetWMProtocols(dpy, root, &wmDeleteMessage, 1);
   
+  cairo_surface_t *sf = cairo_xlib_surface_create(dpy, map, DefaultVisual(dpy, DefaultScreen(dpy)), wa.width, wa.height);
+  cairo_t *cr = cairo_create(sf);
+
   float x  = (float) wa.width / 3.0;
   float y  = (float) wa.height / 3.0;
   float dx = (float) seconds() + 320.0;

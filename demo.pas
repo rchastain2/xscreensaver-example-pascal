@@ -2,7 +2,7 @@
 {$MODE objfpc}{$H+}
 
 uses
-  SysUtils, X, XLib, XUtil, Cairo, CairoXLib;
+  SysUtils, X, XLib, XUtil, Cairo, CairoXLib, ctypes;
 
 var
   dpy: PDisplay;
@@ -16,6 +16,11 @@ var
   event: TXEvent;
   wmDeleteMessage: TAtom;
   hello: string;
+  
+  fontStructure: PXFontStruct;
+  direction, ascent, descent: cint;
+  overall: TXCharStruct;
+  _x, _y, dx, dy: integer;
   
 begin
   dpy := XOpenDisplay(nil);
@@ -41,6 +46,16 @@ begin
   wmDeleteMessage := XInternAtom(dpy, 'WM_DELETE_WINDOW', FALSE);
   XSetWMProtocols(dpy, root, @wmDeleteMessage, 1);
   
+  fontStructure := XLoadQueryFont(dpy, 'fixed');
+  XSetFont(dpy, gc, fontStructure^.fid);
+  hello := TimeToStr(Now);
+  XTextExtents(fontStructure, pchar(hello), Length(hello), @direction, @ascent, @descent, @overall);
+  
+  _x := 0;
+  _y := ascent;
+  dx := 1;
+  dy := 1;
+  
   while TRUE do
   begin
     if XCheckWindowEvent(dpy, root, StructureNotifyMask, @event) or XCheckTypedWindowEvent(dpy, root, ClientMessage, @event) then
@@ -54,11 +69,35 @@ begin
 		XSetBackground(dpy, gc, $000000);
 		XSetForeground(dpy, gc, $000000);
 		XFillRectangle(dpy, map, gc, 0, 0, wa.width, wa.height);
-    XSetForeground(dpy, gc, $FFFF00);
+    XSetForeground(dpy, gc, $00FF00);
     hello := TimeToStr(Now);
-    XDrawImageString(dpy, map, gc, 50, 50, pchar(hello), Length(hello));
+    XDrawImageString(dpy, map, gc, _x, _y, pchar(hello), Length(hello));
     XCopyArea(dpy, map, root, gc, 0, 0, wa.width, wa.height, 0, 0);
     XFlush(dpy);
+    
+    _x := _x + dx;
+    if _x = -1 then
+    begin
+      _x := 1;
+      dx := -1 * dx;
+    end else
+    if _x = wa.width - overall.width then
+    begin
+      _x := wa.width - overall.width - 2;
+      dx := -1 * dx;
+    end;
+    
+    _y := _y + dy;
+    if _y < ascent then
+    begin
+      _y := ascent + 1;
+      dy := -1 * dy;
+    end else
+    if _y = wa.height - descent then
+    begin
+      _y := wa.height - descent - 2;
+      dy := -1 * dy;
+    end;
     
     Sleep(16);
   end;
