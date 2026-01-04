@@ -58,7 +58,9 @@ var
 
   sf: pcairo_surface_t;
   cr: pcairo_t;
-
+  
+  lastUpdate, current, dt: qword;
+  
 begin
   dpy := XOpenDisplay(nil);
   xwin := GetEnvironmentVariable('XSCREENSAVER_WINDOW');
@@ -73,8 +75,6 @@ begin
     root := XCreateSimpleWindow(dpy, RootWindow(dpy, screen), 0, 0, 600, 400, 1, BlackPixel(dpy, screen), WhitePixel(dpy, screen));
     XMapWindow(dpy, root);
   end;
-  
-  WriteLn('[DEBUG] root = ', root);
   
   XSelectInput(dpy, root, ExposureMask or StructureNotifyMask);
   XGetWindowAttributes(dpy, root, @wa);
@@ -91,6 +91,8 @@ begin
   sf := cairo_xlib_surface_create(dpy, map, DefaultVisual(dpy, DefaultScreen(dpy)), wa.width, wa.height);
   cr := cairo_create(sf);
   
+  lastUpdate := GetTickCount64;
+  
   while TRUE do
   begin
     if XCheckWindowEvent(dpy, root, StructureNotifyMask, @event)
@@ -102,11 +104,15 @@ begin
         if event.xclient.data.l[0] = wmDeleteMessage then
           Break;
     
+    current := GetTickCount64;
+    dt := current - lastUpdate;
+    
     draw(cr, _x, _y);
     XCopyArea(dpy, map, root, gc, 0, 0, wa.width, wa.height, 0, 0);
     XFlush(dpy);
     
-    update(_x, _y, dx, dy, 0.016, wa.width, wa.height);
+    update(_x, _y, dx, dy, dt / 1000, wa.width, wa.height);
+    lastUpdate := current;
     
     Sleep(16);
   end;
