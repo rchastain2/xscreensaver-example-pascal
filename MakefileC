@@ -2,7 +2,7 @@
 CC = gcc
 CFLAGS = -Wall
 CLIBS = -lX11 -lm -lcairo
-PROGRAM := ball
+PROGRAM := demo
 
 default: $(PROGRAM)
 

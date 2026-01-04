@@ -2,7 +2,45 @@
 {$MODE objfpc}{$H+}
 
 uses
-  SysUtils, X, XLib, XUtil, ctypes;
+  SysUtils, X, XLib, XUtil, Cairo, CairoXLib;
+
+const
+  BALL_RADIUS = 40;
+
+procedure draw(const cr: pcairo_t; const x, y: double);
+begin
+  cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+  cairo_paint(cr);
+  cairo_arc(cr, x, y, BALL_RADIUS, 0, 2 * PI);
+  cairo_set_source_rgb(cr, 0.165, 0.322, 0.745);
+  cairo_fill(cr);
+end;
+
+procedure update(var x, y, dx, dy: double; const dt: double; const width, height: integer);
+begin
+  x := x + dx * dt;
+  y := y + dy * dt;
+
+  if x < BALL_RADIUS then
+  begin
+    x := 2 * BALL_RADIUS - x;
+    dx := -1 * dx;
+  end else if x > width - BALL_RADIUS then
+  begin
+    x := 2 * (width - BALL_RADIUS) - x;
+    dx := -1 * dx;
+  end;
+
+  if y < BALL_RADIUS then
+  begin
+    y := 2 * BALL_RADIUS - y;
+    dy := -1 * dy;
+  end else if y > height - BALL_RADIUS then
+  begin
+    y := 2 * (height - BALL_RADIUS) - y;
+    dy := -1 * dy;
+  end;
+end;
 
 var
   dpy: PDisplay;
@@ -15,13 +53,12 @@ var
   gc: TGC;
   event: TXEvent;
   wmDeleteMessage: TAtom;
-  hello: string;
   
-  fontStructure: PXFontStruct;
-  direction, ascent, descent: cint;
-  overall: TXCharStruct;
-  _x, _y, dx, dy: integer;
-  
+  _x, _y, dx, dy: double;
+
+  sf: pcairo_surface_t;
+  cr: pcairo_t;
+
 begin
   dpy := XOpenDisplay(nil);
   xwin := GetEnvironmentVariable('XSCREENSAVER_WINDOW');
@@ -46,15 +83,13 @@ begin
   wmDeleteMessage := XInternAtom(dpy, 'WM_DELETE_WINDOW', FALSE);
   XSetWMProtocols(dpy, root, @wmDeleteMessage, 1);
   
-  fontStructure := XLoadQueryFont(dpy, 'fixed');
-  XSetFont(dpy, gc, fontStructure^.fid);
-  hello := TimeToStr(Now);
-  XTextExtents(fontStructure, pchar(hello), Length(hello), @direction, @ascent, @descent, @overall);
+  _x := wa.width / 3;
+  _y := wa.height / 3;
+  dx := 180.0;
+  dy := 120.0;
   
-  _x := 0;
-  _y := ascent;
-  dx := 1;
-  dy := 1;
+  sf := cairo_xlib_surface_create(dpy, map, DefaultVisual(dpy, DefaultScreen(dpy)), wa.width, wa.height);
+  cr := cairo_create(sf);
   
   while TRUE do
   begin
@@ -67,41 +102,17 @@ begin
         if event.xclient.data.l[0] = wmDeleteMessage then
           Break;
     
-    XSetBackground(dpy, gc, $000000);
-    XSetForeground(dpy, gc, $000000);
-    XFillRectangle(dpy, map, gc, 0, 0, wa.width, wa.height);
-    XSetForeground(dpy, gc, $00FF00);
-    hello := TimeToStr(Now);
-    XDrawImageString(dpy, map, gc, _x, _y, pchar(hello), Length(hello));
+    draw(cr, _x, _y);
     XCopyArea(dpy, map, root, gc, 0, 0, wa.width, wa.height, 0, 0);
     XFlush(dpy);
     
-    _x := _x + dx;
-    if _x = -1 then
-    begin
-      _x := 1;
-      dx := -1 * dx;
-    end else
-    if _x = wa.width - overall.width then
-    begin
-      _x := wa.width - overall.width - 2;
-      dx := -1 * dx;
-    end;
+    update(_x, _y, dx, dy, 0.016, wa.width, wa.height);
     
-    _y := _y + dy;
-    if _y < ascent then
-    begin
-      _y := ascent + 1;
-      dy := -1 * dy;
-    end else
-    if _y = wa.height - descent then
-    begin
-      _y := wa.height - descent - 2;
-      dy := -1 * dy;
-    end;
-    
-    Sleep(50);
+    Sleep(16);
   end;
+  
+  cairo_destroy(cr);
+  cairo_surface_destroy(sf);
   
   XFreePixmap(dpy, map);
   XFreeGC(dpy, gc);

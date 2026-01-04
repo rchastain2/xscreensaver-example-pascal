@@ -1,7 +1,14 @@
 
 PC := fpc
 PFLAGS := -Mobjfpc -Sh
+
+ifdef DEBUG
 PFLAGS += -ghl
+else
+PFLAGS += -CX
+PFLAGS += -Xs
+PFLAGS += -XX
+endif
 
 PROGRAM := demo
 
