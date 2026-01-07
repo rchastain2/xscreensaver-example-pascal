@@ -10,7 +10,7 @@ PFLAGS += -Xs
 PFLAGS += -XX
 endif
 
-PROGRAM := demo
+PROGRAMS := $(filter-out vroot.pas,$(wildcard *.pas))
 
 default: $(PROGRAM)
 
