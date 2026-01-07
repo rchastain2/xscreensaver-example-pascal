@@ -4,53 +4,46 @@
 uses
   SysUtils, X, XLib, XUtil, Cairo, CairoXLib;
 
-const
-  BALL_RADIUS = 40;
-
-procedure draw(const cr: pcairo_t; const x, y: double);
-//var
-//  r: pcairo_pattern_t;
+procedure draw(const cr: pcairo_t; const x, y: double; const atext: string);
 begin
   cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
   cairo_paint(cr);
-  cairo_arc(cr, x, y, BALL_RADIUS, 0, 2 * PI);
   cairo_set_source_rgb(cr, 0.118, 0.565, 1.000);
-  //r := cairo_pattern_create_radial(x, y, BALL_RADIUS / 2, x, y, BALL_RADIUS);
-  //cairo_pattern_add_color_stop_rgb(r, 0, 0.165, 0.322, 0.745);
-  //cairo_pattern_add_color_stop_rgb(r, 1, 0, 0, 0);
-  //cairo_set_source(cr, r);
-  cairo_fill(cr);
-  //cairo_pattern_destroy(r);
+  cairo_move_to(cr, x, y);
+  cairo_show_text(cr, pchar(atext));
 end;
 
-procedure update(var x, y, dx, dy: double; const dt: double; const width, height: integer);
+procedure update(var x, y, dx, dy: double; const dt: double; const width, height: integer; const ex: cairo_text_extents_t);
 begin
   x := x + dx * dt;
   y := y + dy * dt;
 
-  if x < BALL_RADIUS then
+  if x < ex.x_bearing then
   begin
-    x := 2 * BALL_RADIUS - x;
+    x := 2 * ex.x_bearing - x;
     dx := -1 * dx;
   end else
-  if x > width - BALL_RADIUS then
+  if x > width - ex.width then
   begin
-    x := 2 * (width - BALL_RADIUS) - x;
+    x := 2 * (width - ex.width) - x;
     dx := -1 * dx;
   end;
 
-  if y < BALL_RADIUS then
+  if y < -ex.y_bearing then
   begin
-    y := 2 * BALL_RADIUS - y;
+    y := 2 * -ex.y_bearing - y;
     dy := -1 * dy;
   end else
-  if y > height - BALL_RADIUS then
+  if y > height then
   begin
-    y := 2 * (height - BALL_RADIUS) - y;
+    y := 2 * height - y;
     dy := -1 * dy;
   end;
 end;
 
+const
+  CFontName = 'Palatine Parliamentary';
+  
 var
   dpy: PDisplay;
   root_window_id: integer;
@@ -61,15 +54,16 @@ var
   gc: TGC;
   event: TXEvent;
   wmDeleteMessage: TAtom;
-  
   _x, _y, dx, dy: double;
-
   sf: pcairo_surface_t;
   cr: pcairo_t;
-  
+  ex: cairo_text_extents_t;
+  s: string;
   lastUpdate, current, dt: qword;
   
 begin
+  Randomize;
+  
   dpy := XOpenDisplay(nil);
   root_window_id := StrToIntDef(GetEnvironmentVariable('XSCREENSAVER_WINDOW'), 0);
   
@@ -90,13 +84,16 @@ begin
   wmDeleteMessage := XInternAtom(dpy, 'WM_DELETE_WINDOW', FALSE);
   XSetWMProtocols(dpy, root, @wmDeleteMessage, 1);
   
-  _x := wa.width / 3;
-  _y := wa.height / 3;
-  dx := 180.0;
-  dy := 120.0;
+  _x := Random(wa.width div 2);
+  _y := Random(wa.height div 2);
+  dx := Random(40) + 40;
+  dy := Random(20) + 20;
   
   sf := cairo_xlib_surface_create(dpy, map, DefaultVisual(dpy, DefaultScreen(dpy)), wa.width, wa.height);
   cr := cairo_create(sf);
+  
+  cairo_select_font_face(cr, CFontName, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+  cairo_set_font_size(cr, 48);
   
   lastUpdate := GetTickCount64;
   
@@ -114,12 +111,14 @@ begin
     current := GetTickCount64;
     dt := current - lastUpdate;
     
-    draw(cr, _x, _y);
+    s := TimeToStr(Now);
+    draw(cr, _x, _y, s);
     
     XCopyArea(dpy, map, root, gc, 0, 0, wa.width, wa.height, 0, 0);
     XFlush(dpy);
     
-    update(_x, _y, dx, dy, dt / 1000, wa.width, wa.height);
+    cairo_text_extents(cr, pchar(s), @ex);
+    update(_x, _y, dx, dy, dt / 1000, wa.width, wa.height, ex);
     
     lastUpdate := current;
     Sleep(16);
