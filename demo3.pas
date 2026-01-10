@@ -9,12 +9,12 @@ const
 
 procedure draw(const cr: pcairo_t; const x, y: double);
 begin
-  cairo_set_source_rgb(cr, 0.149, 0.184, 0.271); // Bleu foncé
+  cairo_set_source_rgb(cr, 0.000, 0.000, 0.000); // Noir
   cairo_paint(cr);
   cairo_arc(cr, x, y, BALL_RADIUS, 0, 2 * PI);
   cairo_set_source_rgb(cr, 0.137, 0.592, 0.831); // Bleu clair
   cairo_fill_preserve(cr);
-  cairo_set_source_rgb(cr, 1.000, 1.000, 1.000); // Blanc
+  cairo_set_source_rgb(cr, 0.149, 0.184, 0.271); // Bleu foncé
   cairo_stroke(cr);
 end;
 
