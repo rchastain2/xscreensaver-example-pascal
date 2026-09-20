@@ -10,17 +10,14 @@ PFLAGS += -Xs
 PFLAGS += -XX
 endif
 
-PROGRAMS := $(filter-out vroot.pas,$(wildcard *.pas))
+PROGRAMS := $(patsubst %.pas,%,$(filter-out vroot.pas,$(wildcard *.pas)))
 
-default: $(PROGRAM)
+default: $(PROGRAMS)
 
 %: %.pas vroot.pas
 	$(PC) $(PFLAGS) $<
 
-.PHONY: clean run
+.PHONY: clean
 
 clean:
-	@rm -v $(PROGRAM)
-
-run: $(PROGRAM)
-	./$(PROGRAM) --debug
+	@rm -fv $(PROGRAMS) *.o

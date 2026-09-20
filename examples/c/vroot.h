@@ -62,8 +62,7 @@
 #include <X11/Xlib.h>
 
 static Window
-VirtualRootWindowOfScreen(screen)
-	Screen *screen;
+VirtualRootWindowOfScreen(Screen *screen)
 {
 	static Screen *save_screen = (Screen *)0;
 	static Window root = (Window)0;
@@ -71,7 +70,7 @@ VirtualRootWindowOfScreen(screen)
 	if (screen != save_screen) {
 		Display *dpy = DisplayOfScreen(screen);
 		Atom __SWM_VROOT = None;
-		int i;
+		unsigned int i;
 		Window rootReturn, parentReturn, *children;
 		unsigned int numChildren;
 

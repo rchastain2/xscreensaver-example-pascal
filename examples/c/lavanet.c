@@ -7,10 +7,12 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <strings.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/keysym.h>
 
 #include "vroot.h"
 
@@ -48,8 +50,9 @@ float get_random() {
 	return ((float) rand() / RAND_MAX - 0.5f) * 2;
 }
 
-ulong make_color(u_char red, u_char green, u_char blue) {
-	ulong color = red;
+unsigned long make_color(unsigned char red, unsigned char green,
+		unsigned char blue) {
+	unsigned long color = red;
 	color = color << 8;
 
 	color |= green;
@@ -70,14 +73,16 @@ void draw_lines(struct line *lines, int lineCount, Display *dpy, GC g,
 	int idx;
 	for (idx = 0; idx < lineCount; idx++) {
 		struct line *line = &lines[idx];
-		XSetForeground(dpy, g, make_color(targetRed * line->value, targetGreen
-				* line->value, targetBlue * line->value));
+		int brightness = 255 - line->value;
+		XSetForeground(dpy, g, make_color(targetRed * brightness / 255,
+				targetGreen * brightness / 255,
+				targetBlue * brightness / 255));
 		XDrawLine(dpy, pixmap, g, line->startX, line->startY, line->endX,
 				line->endY);
 	}
 }
 
-int gather_lines(struct vector *points, struct line **lines) {
+int gather_lines(struct vector *points, struct line *lines) {
 	int counter = 0;
 	int idx;
 	for (idx = 0; idx < pointCount; idx++) {
@@ -87,21 +92,17 @@ int gather_lines(struct vector *points, struct line **lines) {
 			struct vector *pointB = &points[idx2];
 
 			// Check distance between points
-			int distanceX = abs(pointA->x - pointB->x);
-			int distanceY = abs(pointA->y - pointB->y);
-
-			double distance = sqrt(pow(distanceX, 2) + pow(distanceY, 2));
+			float distance = hypotf(pointA->x - pointB->x,
+					pointA->y - pointB->y);
 
 			if (distance < minimumDistance) {
-				counter++;
-
-				*lines = realloc(*lines, counter * sizeof(struct line));
-				struct line *newLine = &(*lines)[counter - 1];
+				struct line *newLine = &lines[counter];
 				newLine->startX = pointA->x;
 				newLine->startY = pointA->y;
 				newLine->endX = pointB->x;
 				newLine->endY = pointB->y;
-				newLine->value = (int) floor(distance / minimumDistance * 255);
+				newLine->value = (int) floorf(distance / minimumDistance * 255);
+				counter++;
 			}
 		}
 	}
@@ -130,11 +131,11 @@ void move_points(struct vector *points, struct vector *velocities,
 		velocity->x += get_random() * topChange;
 		velocity->y += get_random() * topChange;
 
-		if (abs(velocity->x) > topSpeed) {
+		if (fabsf(velocity->x) > topSpeed) {
 			velocity->x = topSpeed * sign(velocity->x);
 		}
 
-		if (abs(velocity->y) > topSpeed) {
+		if (fabsf(velocity->y) > topSpeed) {
 			velocity->y = topSpeed * sign(velocity->y);
 		}
 
@@ -166,49 +167,59 @@ void parse_arguments(int argc, char *argv[]) {
 	}
 }
 
-int main(int argc, char *argv[]) 
+long elapsed_microseconds(struct timeval *start) {
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	return (now.tv_sec - start->tv_sec) * 1000000L
+			+ (now.tv_usec - start->tv_usec);
+}
+
+int main(int argc, char *argv[])
 {
 	parse_arguments(argc, argv);
 
 	// Some stuff
-	int sleepFor = (int) 1000 / targetFps * 1000;
+	long frameDuration = 1000000L / targetFps;
 
 	// Create our display
 	Display *dpy = XOpenDisplay(getenv("DISPLAY"));
 
-	char *xwin = getenv ("XSCREENSAVER_WINDOW");
+	if (dpy == NULL) {
+		fprintf(stderr, "%s: cannot open display\n", argv[0]);
+		return EXIT_FAILURE;
+	}
 
-	int root_window_id = 0;
+	char *xwin = getenv("XSCREENSAVER_WINDOW");
 
-  	if (xwin)
-  	{
-    	root_window_id = strtol (xwin, NULL, 0);
-  	}
+	Window root_window_id = 0;
+
+	if (xwin) {
+		root_window_id = strtoul(xwin, NULL, 0);
+	}
 
 	// Get the root window
 	Window root;
+	Atom wmDeleteMessage = None;
 	if (debug == FALSE) {
-		// Get the root window
-		// root = DefaultRootWindow(dpy);
-		if (root_window_id == 0)
-    	{
-		   // root = DefaultRootWindow(dpy);
-      	   printf ("usage as standalone app: %s --debug\n", argv[0]);
-      		return EXIT_FAILURE;
-    	}
-    	else
-    	{
-      		root = root_window_id;
-    	}
+		if (root_window_id == 0) {
+			printf("usage as standalone app: %s --debug\n", argv[0]);
+			XCloseDisplay(dpy);
+			return EXIT_FAILURE;
+		}
+		root = root_window_id;
 	} else {
 		// Let's create our own window.
 		int screen = DefaultScreen(dpy);
 		root = XCreateSimpleWindow(dpy, RootWindow(dpy, screen), 24, 48, 860,
 				640, 1, BlackPixel(dpy, screen), WhitePixel(dpy, screen));
+
+		// this is to terminate nicely:
+		wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+		XSetWMProtocols(dpy, root, &wmDeleteMessage, 1);
 		XMapWindow(dpy, root);
 	}
 
-	XSelectInput (dpy, root, ExposureMask | StructureNotifyMask);
+	XSelectInput(dpy, root, ExposureMask | StructureNotifyMask | KeyPressMask);
 
 	// Get the window attributes
 	XWindowAttributes wa;
@@ -236,47 +247,56 @@ int main(int argc, char *argv[])
 		velocities[counter].y = get_random() * topSpeed;
 	}
 
-	// this is to terminate nicely:
-	Atom wmDeleteMessage = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(dpy, root, &wmDeleteMessage, 1);
+	size_t maxLineCount = (size_t) pointCount * (pointCount - 1) / 2;
+	struct line *lines = malloc(
+			(maxLineCount > 0 ? maxLineCount : 1) * sizeof(struct line));
 
-	while ( TRUE )
-	{
+	if (lines == NULL) {
+		fprintf(stderr, "%s: out of memory\n", argv[0]);
+		return EXIT_FAILURE;
+	}
+
+	int running = TRUE;
+
+	while (running) {
+		struct timeval frameStart;
+		gettimeofday(&frameStart, NULL);
+
 		XEvent event;
-		if (XCheckWindowEvent(dpy, root, StructureNotifyMask, &event) ||
-		    XCheckTypedWindowEvent (dpy, root, ClientMessage, &event)) // needed to catch ClientMessage
-		{
-			if (event.type == ConfigureNotify) 
-        	{
-          		XConfigureEvent xce = event.xconfigure;
+		while (running && XPending(dpy)) {
+			XNextEvent(dpy, &event);
 
-		        // This event type is generated for a variety of
-          		// happenings, so check whether the window has been
-          		// resized.
+			if (event.type == ConfigureNotify) {
+				XConfigureEvent xce = event.xconfigure;
 
-          		if (xce.width != wa.width || xce.height != wa.height) 
-          		{
-            		wa.width = xce.width;
-            		wa.height = xce.height;
+				// This event type is generated for a variety of
+				// happenings, so check whether the window has been
+				// resized.
 
-    				XFreePixmap(dpy, double_buffer);
-    				double_buffer = XCreatePixmap(dpy, root, wa.width, wa.height,
-							wa.depth);
-          
-            		continue;
-          		}
-        	}
-			else if (event.type == ClientMessage)
-        	{
-            	if (event.xclient.data.l[0] == wmDeleteMessage)
-            	{
-                	break;
-            	}
+				if (xce.width != wa.width || xce.height != wa.height) {
+					wa.width = xce.width;
+					wa.height = xce.height;
+
+					XFreePixmap(dpy, double_buffer);
+					double_buffer = XCreatePixmap(dpy, root, wa.width,
+							wa.height, wa.depth);
+				}
+			} else if (event.type == KeyPress) {
+				if (XLookupKeysym(&event.xkey, 0) == XK_Escape) {
+					running = FALSE;
+				}
+			} else if (event.type == ClientMessage) {
+				if ((Atom) event.xclient.data.l[0] == wmDeleteMessage) {
+					running = FALSE;
+				}
 			}
 		}
 
+		if (running == FALSE) {
+			break;
+		}
+
 		// Clear the pixmap used for double buffering
-		XSetBackground(dpy, g, BLACK);
 		XSetForeground(dpy, g, BLACK);
 		XFillRectangle(dpy, double_buffer, g, 0, 0, wa.width, wa.height);
 
@@ -284,23 +304,29 @@ int main(int argc, char *argv[])
 		move_points(points, velocities, wa);
 
 		// Gather the lines and draw them
-		struct line *lines = malloc(sizeof(struct line));
-		int lineCount = gather_lines(points, &lines);
+		int lineCount = gather_lines(points, lines);
 		qsort(lines, lineCount, sizeof(struct line), sort_lines);
 		draw_lines(lines, lineCount, dpy, g, double_buffer);
-		free(lines);
 
 		XCopyArea(dpy, double_buffer, root, g, 0, 0, wa.width, wa.height, 0, 0);
 		XFlush(dpy);
 
-		usleep(sleepFor);
+		long elapsed = elapsed_microseconds(&frameStart);
+		if (elapsed < frameDuration) {
+			usleep(frameDuration - elapsed);
+		}
 	}
 
 	// cleanup
+	free(lines);
 	XFreePixmap(dpy, double_buffer);
-	XFreeGC (dpy, g);
-  	XDestroyWindow(dpy, root);
-  	XCloseDisplay (dpy);
+	XFreeGC(dpy, g);
+
+	if (debug == TRUE) {
+		XDestroyWindow(dpy, root);
+	}
+
+	XCloseDisplay(dpy);
 
 	return EXIT_SUCCESS;
 }

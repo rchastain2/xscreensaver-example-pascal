@@ -21,7 +21,7 @@ program Cairo_XLib_03;
 }
 
 uses
-  X, XLib, XUtil, Cairo, CairoXLib;
+  X, XLib, XUtil, keysym, Cairo, CairoXLib;
 
 type
   PWindowRec = ^TWindowRec;
@@ -31,6 +31,7 @@ type
     FWindow: TWindow;
     FX, FY, FWidth, FHeight: integer;
     FQuitCode: TKeyCode;
+    FEscapeCode: TKeyCode;
     FPixmap: TPixmap; { v0.3 }
     FGC: TGC;
   end;
@@ -72,6 +73,7 @@ begin
       XSetWMProtocols(FDisplay, FWindow, @LWindowClosingProtocol, 1);
     
     FQuitCode := XKeysymToKeycode(FDisplay, XStringToKeysym('Q'));
+    FEscapeCode := XKeysymToKeycode(FDisplay, XK_Escape);
     XSelectInput(FDisplay, FWindow, ExposureMask or KeyPressMask or ButtonPressMask or StructureNotifyMask);
     XStoreName(FDisplay, FWindow, 'Exemple Cairo X11');
     
@@ -120,8 +122,8 @@ begin
     cairo_set_line_width(LContext, 24);
     cairo_set_line_cap(LContext, CAIRO_LINE_CAP_ROUND);
     cairo_set_source_rgb(LContext, 1.0, 1.0, 1.0);
-    cairo_move_to(LContext, FWidth div 8, FHeight div 8);
-    cairo_line_to(LContext, 7 * (FWidth div 8), 7 * (FHeight div 8));
+    cairo_move_to(LContext, FWidth / 8, FHeight / 8);
+    cairo_line_to(LContext, 7 * FWidth / 8, 7 * FHeight / 8);
     cairo_stroke(LContext);
     cairo_destroy(LContext);
     cairo_surface_destroy(LSurface);
@@ -151,12 +153,15 @@ begin
         with AWindowRec^, LEvent.XConfigure do
         begin
           WriteLn('Configure ', X:3, ', ', Y:3, ', ', Width:3, ', ', Height:3);
-          FWidth  := Width;
-          FHeight := Height;
-          XFreePixmap(FDisplay, FPixmap);
-          XFreeGC(FDisplay, FGC);
-          FPixmap := XCreatePixmap(FDisplay, FWindow, FWidth, FHeight, DefaultDepth(FDisplay, FScreenNum));
-          FGC := XCreateGC(FDisplay, FPixmap, 0, nil);
+          if (Width <> FWidth) or (Height <> FHeight) then
+          begin
+            FWidth  := Width;
+            FHeight := Height;
+            XFreePixmap(FDisplay, FPixmap);
+            XFreeGC(FDisplay, FGC);
+            FPixmap := XCreatePixmap(FDisplay, FWindow, FWidth, FHeight, DefaultDepth(FDisplay, FScreenNum));
+            FGC := XCreateGC(FDisplay, FPixmap, 0, nil);
+          end;
         end;
       ButtonPress:
         begin
@@ -169,7 +174,7 @@ begin
         { v0.2 }
           LKeyEvent := LEvent.XKey;
           WriteLn('LKeyEvent.KeyCode = ', LKeyEvent.KeyCode);
-          if LKeyEvent.KeyCode = AWindowRec^.FQuitCode then
+          if (LKeyEvent.KeyCode = AWindowRec^.FQuitCode) or (LKeyEvent.KeyCode = AWindowRec^.FEscapeCode) then
             Break;
         end;
       ClientMessage:

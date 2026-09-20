@@ -12,7 +12,7 @@ default: $(PROGRAM)
 .PHONY: clean run
 
 clean:
-	rm $(PROGRAM)
+	rm -f $(PROGRAM)
 
 run: $(PROGRAM)
 	./$(PROGRAM) --debug
