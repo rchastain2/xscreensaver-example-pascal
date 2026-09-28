@@ -16,8 +16,8 @@ PROGRAMS := $(patsubst %.pas,%,$(wildcard *.pas))
 
 default: $(PROGRAMS)
 
-demo5: PFLAGS += -Fu$(AGGPAS) -Fi$(AGGPAS) -FUunits
-demo5: | units
+demo5 demo6: PFLAGS += -O3 -B -Fu$(AGGPAS) -Fi$(AGGPAS) -FUunits
+demo5 demo6: | units
 
 units:
 	mkdir -p $@
