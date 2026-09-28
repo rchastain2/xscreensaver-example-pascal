@@ -14,8 +14,6 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
-#include "vroot.h"
-
 #define FALSE 0
 #define TRUE 1
 #define BLACK 0x000000

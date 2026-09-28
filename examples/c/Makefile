@@ -6,7 +6,7 @@ PROGRAM := demo
 
 default: $(PROGRAM)
 
-%: %.c vroot.h
+%: %.c
 	$(CC) $(CFLAGS) -o $@ $< $(CLIBS)
 
 .PHONY: clean run

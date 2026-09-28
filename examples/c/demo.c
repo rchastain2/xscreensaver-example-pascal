@@ -22,8 +22,6 @@
 #include <cairo/cairo.h>
 #include <cairo/cairo-xlib.h>
 
-#include "vroot.h"
-
 #define FALSE 0
 #define TRUE 1
 #define BALL_RADIUS 40

@@ -10,14 +10,23 @@ PFLAGS += -Xs
 PFLAGS += -XX
 endif
 
-PROGRAMS := $(patsubst %.pas,%,$(filter-out vroot.pas,$(wildcard *.pas)))
+AGGPAS ?= ~/Documents/sources/fpgui/framework/src/main/pascal/corelib/render/software
+
+PROGRAMS := $(patsubst %.pas,%,$(wildcard *.pas))
 
 default: $(PROGRAMS)
 
-%: %.pas vroot.pas
+demo5: PFLAGS += -Fu$(AGGPAS) -Fi$(AGGPAS) -FUunits
+demo5: | units
+
+units:
+	mkdir -p $@
+
+%: %.pas
 	$(PC) $(PFLAGS) $<
 
 .PHONY: clean
 
 clean:
 	@rm -fv $(PROGRAMS) *.o
+	@rm -rfv units
