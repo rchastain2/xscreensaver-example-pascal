@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<screensaver name="orrery" _label="Orrery">
+
+  <_description>
+An animated solar system: a glowing sun, six planets (one ringed, one
+with a moon), an asteroid belt, a comet on an elliptical Keplerian orbit
+and a twinkling starfield, seen from a tilted viewpoint.
+
+Written in Free Pascal by Claude, an AI model by Anthropic; 2026.
+  </_description>
+</screensaver>
