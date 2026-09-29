@@ -1,3 +1,4 @@
+program Orrery;
 
 {$MODE objfpc}{$H+}
 
